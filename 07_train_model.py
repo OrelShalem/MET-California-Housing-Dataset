@@ -10,6 +10,12 @@ X_cat = data['X_cat']
 y_num = data['y_num']
 y_cat = data['y_cat']
 
+# Verify that X_num and X_cat are scaled
+print(f'X_num mean: {np.mean(X_num, axis=0)}')
+print(f'X_num std: {np.std(X_num, axis=0)}')
+print(f'y_num mean: {np.mean(y_num, axis=0)}')
+print(f'y_num std: {np.std(y_num, axis=0)}')
+
 # Print unique values in categorical inputs to verify the range
 print(f'Categorical data range: {X_cat.min()} to {X_cat.max()}')
 print(f'Unique values in X_cat: {np.unique(X_cat)}')
@@ -42,3 +48,17 @@ history = model.fit(
 model.save('models/self_supervised_model.h5')
 
 print('Model trained and saved to models/self_supervised_model.h5')
+
+# Add more detailed normalization checks
+print("Normalization statistics:")
+print("\nNumerical features:")
+print(f'Mean: {np.mean(X_num, axis=0)}')
+print(f'Standard deviation: {np.std(X_num, axis=0)}')
+print(f'Minimum: {np.min(X_num, axis=0)}')
+print(f'Maximum: {np.max(X_num, axis=0)}')
+
+print("\nTarget values:")
+print(f'Mean: {np.mean(y_num, axis=0)}')
+print(f'Standard deviation: {np.std(y_num, axis=0)}')
+print(f'Minimum: {np.min(y_num, axis=0)}')
+print(f'Maximum: {np.max(y_num, axis=0)}')

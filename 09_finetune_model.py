@@ -6,6 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 from keras.models import load_model
 from keras import layers, models
+import keras
 
 # Load the original data
 df = pd.read_csv('data/encoded_data.csv')  # This contains the unmasked data with encoded categorical features
@@ -62,13 +63,15 @@ model_finetuned.compile(optimizer='adam', loss='mse')
 history = model_finetuned.fit(
     {'numerical_inputs': X_num_train, 'categorical_inputs': X_cat_train},
     y_train,
-    epochs=10,
-    batch_size=64,
-    verbose=1,
-    validation_data=(
-        {'numerical_inputs': X_num_test, 'categorical_inputs': X_cat_test},
-        y_test
-    )
+    epochs=30,
+    batch_size=32,
+    validation_split=0.2,
+    callbacks=[
+        keras.callbacks.EarlyStopping(
+            patience=5,
+            restore_best_weights=True
+        )
+    ]
 )
 
 # Evaluate the model on the test set

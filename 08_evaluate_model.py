@@ -1,7 +1,9 @@
 # 08_evaluate_model.py
+# קובץ 08 בודק:
+# - כמה קרוב המודל ניחש לערך האמיתי (MSE)
+# - כמה פעמים ניחש נכון את הקטגוריה (Accuracy)
 
 import numpy as np
-import pandas as pd
 from sklearn.metrics import mean_squared_error, accuracy_score
 
 # Load the testing data
