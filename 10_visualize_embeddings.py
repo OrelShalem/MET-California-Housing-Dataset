@@ -1,48 +1,95 @@
 # 10_visualize_embeddings.py
 
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from keras.models import load_model
-import pickle
+import seaborn as sns
+import os
+from tensorflow import keras
 
-# Load the trained model
-model = load_model('models/self_supervised_model.h5')
+def analyze_finetuned_results():
+    """
+    ניתוח תוצאות המודל המשופר:
+    1. טעינת המודל המשופר
+    2. ביצוע חיזוי
+    3. השוואה לערכים המקוריים
+    4. ויזואליזציה של התוצאות
+    """
+    # יצירת תיקיות
+    os.makedirs('plots/analysis', exist_ok=True)
+    os.makedirs('results', exist_ok=True)
+    
+    # טעינת הנתונים
+    data = np.load('data/training_data.npz')
+    X_test = data['X_test']
+    y_test = data['y_test']
+    mask_test = data['mask_test']
+    
+    # טעינת המודל המשופר
+    model = keras.models.load_model('models/finetuned_model.keras')
+    
+    # ביצוע חיזוי
+    predictions = model.predict(X_test)
+    
+    # הגדרת התכונות
+    features = [
+        'MedInc', 'AveRooms', 'AveBedrms', 'Population', 
+        'AveOccup', 'Latitude', 'Longitude', 'AgeCategory'
+    ]
+    
+    # יישוב מדדי דיוק לכל תכונה
+    results = []
+    for i, feature in enumerate(features):
+        # מציאת האינדקסים של הערכים הממוסכים
+        feature_mask = mask_test[:, i]
+        
+        if feature_mask.any():
+            # חישוב מדדי דיוק
+            mae = np.mean(np.abs(y_test[feature_mask, i] - predictions[feature_mask, i]))
+            mse = np.mean((y_test[feature_mask, i] - predictions[feature_mask, i])**2)
+            rmse = np.sqrt(mse)
+            
+            # יצירת scatter plot
+            plt.figure(figsize=(8, 6))
+            plt.scatter(y_test[feature_mask, i], predictions[feature_mask, i], alpha=0.5)
+            plt.plot([y_test[feature_mask, i].min(), y_test[feature_mask, i].max()], 
+                     [y_test[feature_mask, i].min(), y_test[feature_mask, i].max()], 
+                     'r--')
+            plt.xlabel('Original Values')
+            plt.ylabel('Predicted Values')
+            plt.title(f'{feature} - Original vs Predicted')
+            plt.savefig(f'plots/analysis/{feature}_comparison.png')
+            plt.close()
+            
+            results.append({
+                'Feature': feature,
+                'MAE': mae,
+                'MSE': mse,
+                'RMSE': rmse,
+                'Predicted_Count': feature_mask.sum()
+            })
+    
+    # יצירת DataFrame עם התוצאות
+    results_df = pd.DataFrame(results)
+    
+    # הדפסת סיכום התוצאות
+    print("\nFine-tuned Model Results Summary:")
+    print(results_df.to_string(index=False))
+    
+    # יצירת heatmap של מדדי הדיוק
+    plt.figure(figsize=(10, 6))
+    sns.heatmap(results_df[['MAE', 'MSE', 'RMSE']].values.reshape(1, -1),
+                annot=True, fmt='.4f',
+                xticklabels=['MAE', 'MSE', 'RMSE'],
+                yticklabels=['Metrics'])
+    plt.title('Fine-tuned Model Error Metrics')
+    plt.savefig('plots/analysis/error_metrics_heatmap.png')
+    plt.close()
+    
+    # שמירת התוצאות לקובץ
+    results_df.to_csv('results/finetuned_metrics.csv', index=False)
+    
+    return results_df
 
-# Load the label encoder to get category names
-with open('models/label_encoder.pkl', 'rb') as file:
-    label_encoder = pickle.load(file)
-category_names = label_encoder.classes_
-
-# Extract the embedding weights
-embedding_layer = model.get_layer('embedding')
-embeddings = embedding_layer.get_weights()[0]  # Shape: (num_categories + 1, embedding_dim)
-
-# Exclude the mask token embedding (index 0) if mask_zero=True was used
-embeddings = embeddings[1:]  # Adjust according to your embedding layer configuration
-
-# Optionally normalize embeddings
-# embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
-
-# Visualize embeddings using PCA or t-SNE
-from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
-
-# Use PCA for dimensionality reduction
-pca = PCA(n_components=2)
-embeddings_2d = pca.fit_transform(embeddings)
-
-# Alternatively, use t-SNE
-# tsne = TSNE(n_components=2, random_state=42)
-# embeddings_2d = tsne.fit_transform(embeddings)
-
-# Plot the embeddings
-plt.figure(figsize=(8, 6))
-for i, label in enumerate(category_names):
-    x, y = embeddings_2d[i]
-    plt.scatter(x, y)
-    plt.text(x + 0.01, y + 0.01, label, fontsize=12)
-plt.title('Embeddings Visualization')
-plt.xlabel('Dimension 1')
-plt.ylabel('Dimension 2')
-plt.grid(True)
-plt.show()
+if __name__ == "__main__":
+    results = analyze_finetuned_results()

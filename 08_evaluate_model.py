@@ -4,48 +4,88 @@
 # - How many times the model guessed the category correctly (Accuracy)
 
 import numpy as np
-from sklearn.metrics import mean_squared_error, accuracy_score
+from tensorflow import keras
+import pandas as pd
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+import matplotlib.pyplot as plt
+import os
 
-# Load the testing data
-data = np.load('data/training_data.npz')
-X_num = data['X_num']
-X_cat = data['X_cat']
-y_num = data['y_num']
-y_cat = data['y_cat']
+def evaluate_model():
+    """
+    הערכת המודל לפי גישת MET:
+    1. בדיקת ביצועים על סט הבדיקה
+    2. חישוב מדדים שונים
+    3. ויזואליזציה של התוצאות
+    """
+    # טעינת הנתונים
+    data = np.load('data/training_data.npz')
+    X_test = data['X_test']
+    y_test = data['y_test']
+    mask_test = data['mask_test']
+    
+    # טעינת המודל
+    model = keras.models.load_model('models/trained_model.keras')
+    
+    # חיזוי
+    y_pred = model.predict(X_test)
+    
+    # חישוב מדדים רק על הערכים הלא ממוסכים
+    mse_per_feature = []
+    mae_per_feature = []
+    
+    for i in range(X_test.shape[1]):
+        feature_mask = mask_test[:, i]
+        mse = mean_squared_error(y_test[feature_mask, i], y_pred[feature_mask, i])
+        mae = mean_absolute_error(y_test[feature_mask, i], y_pred[feature_mask, i])
+        mse_per_feature.append(mse)
+        mae_per_feature.append(mae)
+    
+    # יצירת DataFrame עם התוצאות
+    features = ['MedInc', 'AveRooms', 'AveBedrms', 'Population', 
+               'AveOccup', 'Latitude', 'Longitude', 'AgeCategory']
+    
+    results_df = pd.DataFrame({
+        'Feature': features,
+        'MSE': mse_per_feature,
+        'MAE': mae_per_feature,
+        'RMSE': np.sqrt(mse_per_feature)
+    })
+    
+    # הדפסת התוצאות
+    print("\nModel Evaluation Results:")
+    print(results_df.to_string(index=False))
+    print(f"\nOverall MSE: {np.mean(mse_per_feature):.4f}")
+    print(f"Overall MAE: {np.mean(mae_per_feature):.4f}")
+    print(f"Overall RMSE: {np.sqrt(np.mean(mse_per_feature)):.4f}")
+    
+    # וצירת תיקיית plots אם לא קיימת
+    os.makedirs('plots', exist_ok=True)
+    os.makedirs('results', exist_ok=True)
+    
+    # ויזואליזציה של התוצאות
+    plt.figure(figsize=(12, 6))
+    
+    # Plot MSE per feature
+    plt.subplot(1, 2, 1)
+    plt.bar(features, mse_per_feature)
+    plt.xticks(rotation=45)
+    plt.title('MSE per Feature')
+    plt.tight_layout()
+    
+    # Plot MAE per feature
+    plt.subplot(1, 2, 2)
+    plt.bar(features, mae_per_feature)
+    plt.xticks(rotation=45)
+    plt.title('MAE per Feature')
+    plt.tight_layout()
+    
+    plt.savefig('plots/evaluation_results.png')
+    plt.close()
+    
+    # שמירת התוצאות לקובץ
+    results_df.to_csv('results/evaluation_metrics.csv', index=False)
+    
+    return results_df
 
-# Load the trained model
-from keras.models import load_model
-model = load_model('models/self_supervised_model.h5')
-
-# Make predictions
-predictions = model.predict({'numerical_inputs': X_num, 'categorical_inputs': X_cat})
-
-# Extract predictions
-y_num_pred = predictions[0]
-y_cat_pred_probs = predictions[1]
-y_cat_pred = np.argmax(y_cat_pred_probs, axis=1)
-
-# Calculate MSE for numerical features
-mse = mean_squared_error(y_num, y_num_pred)
-print(f'Mean Squared Error for numerical features: {mse}')
-
-# Calculate accuracy for categorical features
-accuracy = accuracy_score(y_cat, y_cat_pred)
-print(f'Accuracy for categorical feature: {accuracy}')
-
-# Optionally, calculate MSE per feature
-numerical_features = [
-    'MedInc',
-    'AveRooms',
-    'AveBedrms',
-    'Population',
-    'AveOccup',
-    'Latitude',
-    'Longitude'
-]
-# Calculate MSE for each numerical feature
-for idx, feature in enumerate(numerical_features):
-    feature_mse = mean_squared_error(y_num[:, idx], y_num_pred[:, idx])
-    print(f'MSE for {feature}: {feature_mse}')
-
-print('Evaluation completed.')
+if __name__ == "__main__":
+    results = evaluate_model()

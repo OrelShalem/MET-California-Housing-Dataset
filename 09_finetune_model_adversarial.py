@@ -1,51 +1,65 @@
 import numpy as np
 from tensorflow import keras
-from build_model_adversarial import AdversarialLoss
+import pandas as pd
 
-# טעינת הנתונים
-data = np.load('data/training_data.npz')
-X_num, X_cat = data['X_num'], data['X_cat']
-y_num, y_cat = data['y_num'], data['y_cat']
+def predict_new_data(input_data_path):
+    """
+    חיזוי על נתונים חדשים לפי גישת MET:
+    1. טעינת נתונים חדשים
+    2. נרמול הנתונים
+    3. חיזוי
+    4. ביטול הנרמול
+    """
+    # טעינת הנתונים החדשים
+    df_new = pd.read_csv(input_data_path)
+    
+    # טעינת המודל
+    model = keras.models.load_model('models/trained_model.keras')
+    
+    # טעינת הscaler
+    scaler_params = np.load('models/scaler.npy', allow_pickle=True).item()
+    
+    # שחזור הscaler
+    class CustomScaler:
+        def __init__(self, mean_, scale_):
+            self.mean_ = mean_
+            self.scale_ = scale_
+            
+        def transform(self, X):
+            return (X - self.mean_) / self.scale_
+            
+        def inverse_transform(self, X):
+            return X * self.scale_ + self.mean_
+    
+    scaler = CustomScaler(scaler_params['mean_'], scaler_params['scale_'])
+    
+    # הגדרת התכונות
+    features = [
+        'MedInc', 'AveRooms', 'AveBedrms', 'Population', 
+        'AveOccup', 'Latitude', 'Longitude', 'AgeCategory'
+    ]
+    
+    # נרמול הנתונים
+    X = df_new[features].values
+    X_normalized = scaler.transform(X)
+    
+    # חיזוי
+    predictions = model.predict(X_normalized)
+    
+    # ביטול הנרמול
+    predictions = scaler.inverse_transform(predictions)
+    
+    # יצירת DataFrame עם התוצאות
+    results_df = pd.DataFrame(predictions, columns=features)
+    
+    # שמירת התוצאות
+    output_path = 'results/predictions.csv'
+    results_df.to_csv(output_path, index=False)
+    
+    print(f"\nPredictions saved to {output_path}")
+    return results_df
 
-# טעינת המודל האדברסרי
-model = keras.models.load_model('models/self_supervised_model_adversarial_trained.h5',
-                              custom_objects={'AdversarialLoss': AdversarialLoss})
-
-# הגדרת שכבות חדשות לfine-tuning עם שמות ייחודיים
-x = model.layers[-3].output
-x = keras.layers.Dense(48, activation='relu', name='dense_finetune_1')(x)
-x = keras.layers.Dense(24, activation='relu', name='dense_finetune_2')(x)
-numerical_outputs = keras.layers.Dense(7, name='numerical_outputs_new')(x)
-categorical_outputs = keras.layers.Dense(4, name='categorical_outputs_new')(x)
-
-# יצירת מודל חדש
-new_model = keras.Model(
-    inputs=model.inputs,
-    outputs=[numerical_outputs, categorical_outputs]
-)
-
-# קומפילציה
-new_model.compile(
-    optimizer=keras.optimizers.Adam(learning_rate=0.0001),
-    loss={
-        'numerical_outputs_new': AdversarialLoss(epsilon=0.05),
-        'categorical_outputs_new': 'sparse_categorical_crossentropy'
-    }
-)
-
-# אימון המודל המעודכן
-history = new_model.fit(
-    [X_num, X_cat],
-    [y_num, y_cat],
-    epochs=30,
-    batch_size=32,
-    validation_split=0.2
-)
-
-# הערכת המודל
-test_loss = new_model.evaluate([X_num[-1000:], X_cat[-1000:]], 
-                             [y_num[-1000:], y_cat[-1000:]])
-print(f"Test Mean Squared Error: {test_loss[0]}")
-
-# שמירת המודל המעודכן
-new_model.save('models/self_supervised_model_adversarial_finetuned.h5') 
+if __name__ == "__main__":
+    # לדוגמה: חיזוי על נתונים חדשים
+    input_path = 'data/new_data.csv'  # נתיב לקובץ עם נתונים חדשים
+    predictions = predict_new_data(input_path)

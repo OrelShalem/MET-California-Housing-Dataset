@@ -1,85 +1,61 @@
 # 09_finetune_model.py
 
+import tensorflow as tf
+from tensorflow import keras
 import numpy as np
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error
-from keras.models import load_model
-from keras import layers, models
-import keras
 
-# Load the original data
-df = pd.read_csv('data/encoded_data.csv')  # This contains the unmasked data with encoded categorical features
+def finetune_model():
+    """
+    Fine-tuning של המודל המאומן:
+    1. טעינת המודל המאומן
+    2. טעינת נתוני האימון
+    3. המשך אימון עם learning rate נמוך יותר
+    """
+    # טעינת המודל המאומן
+    model = keras.models.load_model('models/trained_model.keras')
+    
+    # טעינת הנתונים
+    data = np.load('data/training_data.npz')
+    X_train = data['X_train']
+    y_train = data['y_train']
+    mask_train = data['mask_train']
+    
+    # הגדרת אופטימייזר חדש עם learning rate נמוך יותר
+    optimizer = keras.optimizers.Adam(learning_rate=0.0001)
+    
+    # קומפילציה מחדש של המודל
+    model.compile(
+        optimizer=optimizer,
+        loss='mse',
+        metrics=['mae'],
+        weighted_metrics=['mae']
+    )
+    
+    # המשך אימון
+    history = model.fit(
+        X_train,
+        y_train,
+        batch_size=256,
+        epochs=50,
+        validation_split=0.1,
+        sample_weight=np.mean(mask_train, axis=1),
+        callbacks=[
+            keras.callbacks.EarlyStopping(
+                monitor='val_loss',
+                patience=10,
+                restore_best_weights=True
+            )
+        ]
+    )
+    
+    # שמירת המודל המעודכן
+    model.save('models/finetuned_model.keras')
+    
+    # שמירת היסטוריית האימון
+    np.save('models/finetuning_history.npy', history.history)
+    
+    return model, history
 
-# Prepare inputs
-numerical_features = [
-    'MedInc',
-    'AveRooms',
-    'AveBedrms',
-    'Population',
-    'AveOccup',
-    'Latitude',
-    'Longitude'
-]
-categorical_features = ['AgeCategory']
-
-X_num = df[numerical_features].values
-X_cat = df[categorical_features].values
-y = df['MedHouseVal'].values  # Target variable
-
-# Split the data into training and testing sets
-X_num_train, X_num_test, X_cat_train, X_cat_test, y_train, y_test = train_test_split(
-    X_num, X_cat, y, test_size=0.2, random_state=42
-)
-
-# Load the pretrained self-supervised model
-model = load_model('models/self_supervised_model.h5')
-
-# Remove the output layers of the self-supervised model
-# Retain the shared hidden layers to use as a feature extractor
-# Identify the layer before the outputs (e.g., 'dense_1')
-
-# Optionally, print the model summary to identify layer names
-# model.summary()
-
-# Create a new model with the shared layers
-# Assuming 'dense_1' is the last shared layer before outputs
-shared_layer_output = model.get_layer('dense_1').output
-
-# Add a new output layer for regression
-price_output = layers.Dense(1, name='price_output')(shared_layer_output)
-
-# Define the new model
-model_finetuned = models.Model(inputs=model.inputs, outputs=price_output)
-
-# Optionally, freeze the layers except the new output layer
-for layer in model_finetuned.layers[:-1]:
-    layer.trainable = False
-
-# Compile the model
-model_finetuned.compile(optimizer='adam', loss='mse')
-
-# Train the model
-history = model_finetuned.fit(
-    {'numerical_inputs': X_num_train, 'categorical_inputs': X_cat_train},
-    y_train,
-    epochs=30,
-    batch_size=32,
-    validation_split=0.2,
-    callbacks=[
-        keras.callbacks.EarlyStopping(
-            patience=5,
-            restore_best_weights=True
-        )
-    ]
-)
-
-# Evaluate the model on the test set
-y_pred = model_finetuned.predict({'numerical_inputs': X_num_test, 'categorical_inputs': X_cat_test})
-test_mse = mean_squared_error(y_test, y_pred)
-print(f'Test Mean Squared Error: {test_mse}')
-
-# Save the fine-tuned model
-model_finetuned.save('models/fine_tuned_model.h5')
-
-print('Fine-tuning completed and model saved to models/fine_tuned_model.h5')
+if __name__ == "__main__":
+    model, history = finetune_model()
+    print("\nModel fine-tuning completed and saved to models/finetuned_model.keras")

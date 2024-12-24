@@ -4,62 +4,82 @@
 import tensorflow as tf
 from keras import layers, models
 
-def create_model(num_numerical_features, num_categorical_features, num_categories):
-    # Input layers
-    numerical_inputs = layers.Input(shape=(num_numerical_features,), name='numerical_inputs')
-    categorical_inputs = layers.Input(shape=(num_categorical_features,), name='categorical_inputs')
+def create_transformer_block(x, embed_dim, ff_dim, num_heads):
+    """יצירת בלוק טרנספורמר"""
+    # Reshape the input to 3D tensor for attention
+    x_reshaped = layers.Reshape((1, embed_dim))(x)
+    
+    # Multi-head attention
+    attention_output = layers.MultiHeadAttention(
+        num_heads=num_heads, 
+        key_dim=embed_dim // num_heads  # חלוקה במספר הראשים
+    )(x_reshaped, x_reshaped)
+    
+    # Reshape back to 2D
+    attention_output = layers.Reshape((embed_dim,))(attention_output)
+    
+    # Add & Normalize
+    x = layers.Add()([x, attention_output])
+    x = layers.LayerNormalization(epsilon=1e-6)(x)
+    
+    # Feed-forward network
+    ffn = layers.Dense(ff_dim, activation='relu')(x)
+    ffn = layers.Dense(embed_dim)(ffn)
+    x = layers.Add()([x, ffn])
+    x = layers.LayerNormalization(epsilon=1e-6)(x)
+    
+    return x
 
-    # Embedding layers for categorical features 
-    # explain: embedding is used to embed the categorical features into a dense vector
-    # explain: input_dim is the number of categories + 1 to include the mask token at index 0
-    # explain: output_dim is the dimension of the embedding
-    # explain: mask_zero is used to mask the zero index
-    embedding_dim = 2  # Adjust as needed
-    embedding = layers.Embedding(
-        input_dim=num_categories + 1,  # +1 to include the mask token at index 0
-        output_dim=embedding_dim,
-        mask_zero=True
-    )(categorical_inputs)
-
-    # Flatten embedding output 
-    # explain: flatten is used to flatten the embedding output to a 1D vector
-    embedding_flat = layers.Flatten()(embedding)
-
-    # Concatenate numerical and categorical features
-    concat = layers.Concatenate()([numerical_inputs, embedding_flat])
-
-    # Shared hidden layers
-    hidden = layers.Dense(128, activation='relu')(concat)
-    hidden = layers.Dense(64, activation='relu')(hidden)
-    hidden = layers.Dense(32, activation='relu')(hidden)
-
-    # Output layers for reconstructing numerical features
-    numerical_outputs = layers.Dense(num_numerical_features, name='numerical_outputs')(hidden)
-
-    # Output layers for reconstructing categorical features
-    categorical_outputs = layers.Dense(
-        num_categories + 1,  # +1 to include the mask token
-        activation='softmax',
-        name='categorical_outputs'
-    )(hidden)
-
-    # Define the model
-    model = models.Model(
-        inputs=[numerical_inputs, categorical_inputs],
-        outputs=[numerical_outputs, categorical_outputs]
+def create_model(input_dim, embed_dim=64, ff_dim=64, num_heads=2, 
+                model_depth_enc=6, model_depth_dec=1):
+    """
+    MET model architecture:
+    1. Encoder-Decoder טרנספורמר בסגנון
+    2. משתמש במספר שכבות טרנספורמר מתכוונן
+    """
+    # Input layer
+    inputs = layers.Input(shape=(input_dim,))
+    
+    # Initial embedding
+    x = layers.Dense(embed_dim)(inputs)
+    
+    # Encoder blocks
+    for _ in range(model_depth_enc):
+        x = create_transformer_block(x, embed_dim, ff_dim, num_heads)
+    
+    # Decoder blocks
+    for _ in range(model_depth_dec):
+        x = create_transformer_block(x, embed_dim, ff_dim, num_heads)
+    
+    # Output layer
+    outputs = layers.Dense(input_dim)(x)
+    
+    # Build model
+    model = models.Model(inputs=inputs, outputs=outputs)
+    
+    # Compile
+    model.compile(
+        optimizer='adam',
+        loss='mse'
     )
-
+    
     return model
 
-# Calculate num_categories based on label encoding
-num_categories = 3  # Adjust based on the data; in this case, we have 'New', 'Mid', 'Old', so 3 categories
-
-# Save the model architecture (weights will be trained later)
-model = create_model(num_numerical_features=7, num_categorical_features=1, num_categories=num_categories)
-
-# Save model architecture to JSON (optional)
-model_json = model.to_json()
-with open('models/model_architecture.json', 'w') as json_file:
-    json_file.write(model_json)
-
-print('Model architecture created and saved.')
+if __name__ == "__main__":
+    # יצירת המודל עם הפרמטרים המומלצים מה-paper
+    model = create_model(
+        input_dim=8,
+        embed_dim=64,
+        ff_dim=64,
+        num_heads=2,
+        model_depth_enc=6,
+        model_depth_dec=1
+    )
+    model.summary()
+    
+    # שמירת ארכיטקטורת המודל
+    model_json = model.to_json()
+    with open('models/model_architecture.json', 'w') as json_file:
+        json_file.write(model_json)
+    
+    print('Model architecture created and saved.')
