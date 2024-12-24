@@ -14,10 +14,6 @@ df['AgeCategory'] = label_encoder.fit_transform(df['AgeCategory']) + 1
 # Create models directory if it doesn't exist
 os.makedirs('models', exist_ok=True)
 
-# Encode the AgeCategory feature
-label_encoder = LabelEncoder()
-df['AgeCategory'] = label_encoder.fit_transform(df['AgeCategory']) + 1
-
 unique_values = df['AgeCategory'].unique()
 print(f'Unique values in AgeCategory: {unique_values}')
 

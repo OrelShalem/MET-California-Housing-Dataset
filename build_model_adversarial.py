@@ -33,7 +33,7 @@ def build_adversarial_model(input_dim, num_categories):
         outputs=[numerical_outputs, categorical_outputs]
     )
     
-    # קומפילציה עם הLoss האדברסרי
+    # Compile with the adversarial loss
     model.compile(
         optimizer='adam',
         loss={
@@ -45,10 +45,10 @@ def build_adversarial_model(input_dim, num_categories):
     return model
 
 if __name__ == "__main__":
-    # יצירת המודל האדברסרי
-    model = build_adversarial_model(input_dim=7, num_categories=4)
+    # Create the adversarial model
+    model = build_adversarial_model(input_dim=2, num_categories=3)
     model.summary()
     
-    # שמירה בשם שונה מהמודל המקורי
+    # Save the model with a different name from the original model
     model.save('models/self_supervised_model_adversarial.h5')
     print('Adversarial model architecture created and saved.') 

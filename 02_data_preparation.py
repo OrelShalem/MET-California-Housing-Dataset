@@ -4,37 +4,42 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 import joblib
 
-# טעינת הנתונים
+# Load the data
 data = pd.read_csv('data/raw_data.csv')
 df = data.copy()
 
-# יצירת קטגוריית גיל
+# Create age category by labeling the bins
 df['AgeCategory'] = pd.cut(
     df['HouseAge'],
     bins=[0, 10, 30, 52],
     labels=['New', 'Mid', 'Old']
 )
+
+# Drop the original 'HouseAge' column
 df = df.drop(columns=['HouseAge'])
 
+# Define the numerical features
 numerical_features = [
     'MedInc', 'AveRooms', 'AveBedrms', 'Population', 
     'AveOccup', 'Latitude', 'Longitude'
 ]
+
+# Define the categorical feature
 categorical_features = ['AgeCategory']
 
-# נרמול המאפיינים
+# Normalize the features
 scaler_features = StandardScaler()
 scaler_target = StandardScaler()
 
-# התאמת הסקיילרים והנרמול
+# Fit the scalers and normalize the features
 df[numerical_features] = scaler_features.fit_transform(df[numerical_features])
-# חשוב! להתאים את scaler_target על הנתונים המקוריים
-scaler_target.fit(df[numerical_features])  # רק fit, לא transform
+# Important! Fit the scaler_target on the original data
+scaler_target.fit(df[numerical_features])  # Only fit, not transform
 
-# שמירת הסקיילרים
+# Save the scalers
 joblib.dump(scaler_features, 'models/scaler_features.pkl')
 joblib.dump(scaler_target, 'models/scaler_target.pkl')
 
-# שמירת הנתונים
+# Save the data
 df.to_csv('data/prepared_data.csv', index=False)
 print('Data prepared and saved to data/prepared_data.csv')

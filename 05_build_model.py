@@ -14,7 +14,7 @@ def create_model(num_numerical_features, num_categorical_features, num_categorie
     # explain: input_dim is the number of categories + 1 to include the mask token at index 0
     # explain: output_dim is the dimension of the embedding
     # explain: mask_zero is used to mask the zero index
-    embedding_dim = 4  # Adjust as needed
+    embedding_dim = 2  # Adjust as needed
     embedding = layers.Embedding(
         input_dim=num_categories + 1,  # +1 to include the mask token at index 0
         output_dim=embedding_dim,
