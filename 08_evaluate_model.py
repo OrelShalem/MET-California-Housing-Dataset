@@ -43,6 +43,7 @@ numerical_features = [
     'Latitude',
     'Longitude'
 ]
+# Calculate MSE for each numerical feature
 for idx, feature in enumerate(numerical_features):
     feature_mse = mean_squared_error(y_num[:, idx], y_num_pred[:, idx])
     print(f'MSE for {feature}: {feature_mse}')

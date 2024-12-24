@@ -39,7 +39,7 @@ model.compile(
 history = model.fit(
     {'numerical_inputs': X_num, 'categorical_inputs': X_cat},
     {'numerical_outputs': y_num, 'categorical_outputs': y_cat},
-    epochs=10,
+    epochs=20,
     batch_size=64,
     verbose=1
 )
