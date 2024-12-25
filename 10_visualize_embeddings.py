@@ -28,8 +28,8 @@ def analyze_finetuned_results():
     # טעינת המודל המשופר
     model = keras.models.load_model('models/finetuned_model.keras')
     
-    # ביצוע חיזוי
-    predictions = model.predict(X_test)
+    # ביצוע חיזוי - עכשיו עם שני קלטים
+    predictions = model.predict([X_test, mask_test])
     
     # הגדרת התכונות
     features = [
@@ -43,21 +43,26 @@ def analyze_finetuned_results():
         # מציאת האינדקסים של הערכים הממוסכים
         feature_mask = mask_test[:, i]
         
-        if feature_mask.any():
+        if np.any(feature_mask):  # בדיקה שיש ערכים ממוסכים
+            # חישוב מדדי דיוק רק על הערכים הממוסכים
+            masked_true = y_test[feature_mask == 1, i]
+            masked_pred = predictions[feature_mask == 1, i]
+            
             # חישוב מדדי דיוק
-            mae = np.mean(np.abs(y_test[feature_mask, i] - predictions[feature_mask, i]))
-            mse = np.mean((y_test[feature_mask, i] - predictions[feature_mask, i])**2)
+            mae = np.mean(np.abs(masked_true - masked_pred))
+            mse = np.mean((masked_true - masked_pred)**2)
             rmse = np.sqrt(mse)
             
             # יצירת scatter plot
             plt.figure(figsize=(8, 6))
-            plt.scatter(y_test[feature_mask, i], predictions[feature_mask, i], alpha=0.5)
-            plt.plot([y_test[feature_mask, i].min(), y_test[feature_mask, i].max()], 
-                     [y_test[feature_mask, i].min(), y_test[feature_mask, i].max()], 
-                     'r--')
+            plt.scatter(masked_true, masked_pred, alpha=0.5)
+            plt.plot([masked_true.min(), masked_true.max()], 
+                     [masked_true.min(), masked_true.max()], 
+                     'r--', label='Perfect Prediction')
             plt.xlabel('Original Values')
             plt.ylabel('Predicted Values')
-            plt.title(f'{feature} - Original vs Predicted')
+            plt.title(f'{feature} - Original vs Predicted\nMAE: {mae:.4f}, RMSE: {rmse:.4f}')
+            plt.legend()
             plt.savefig(f'plots/analysis/{feature}_comparison.png')
             plt.close()
             
@@ -66,7 +71,7 @@ def analyze_finetuned_results():
                 'MAE': mae,
                 'MSE': mse,
                 'RMSE': rmse,
-                'Predicted_Count': feature_mask.sum()
+                'Predicted_Count': np.sum(feature_mask)
             })
     
     # יצירת DataFrame עם התוצאות
@@ -77,12 +82,16 @@ def analyze_finetuned_results():
     print(results_df.to_string(index=False))
     
     # יצירת heatmap של מדדי הדיוק
-    plt.figure(figsize=(10, 6))
-    sns.heatmap(results_df[['MAE', 'MSE', 'RMSE']].values.reshape(1, -1),
-                annot=True, fmt='.4f',
+    plt.figure(figsize=(12, 6))
+    metrics_data = results_df[['MAE', 'MSE', 'RMSE']].values
+    sns.heatmap(metrics_data, 
+                annot=True, 
+                fmt='.4f',
                 xticklabels=['MAE', 'MSE', 'RMSE'],
-                yticklabels=['Metrics'])
-    plt.title('Fine-tuned Model Error Metrics')
+                yticklabels=results_df['Feature'],
+                cmap='YlOrRd')
+    plt.title('Fine-tuned Model Error Metrics per Feature')
+    plt.tight_layout()
     plt.savefig('plots/analysis/error_metrics_heatmap.png')
     plt.close()
     

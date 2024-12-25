@@ -23,7 +23,7 @@ def analyze_adversarial_embeddings():
     mask_test = data['mask_test']
     
     # טעינת המודלים
-    regular_model = keras.models.load_model('models/finetuned_model.keras')
+    regular_model = keras.models.load_model('models/best_model_run_1.keras')
     adv_model = keras.models.load_model('models/finetuned_adversarial_model.keras')
     
     # הגדרת התכונות
@@ -39,9 +39,9 @@ def analyze_adversarial_embeddings():
     for noise in noise_levels:
         X_noisy = X_test + np.random.normal(0, noise, X_test.shape)
         
-        # חיזוי עם שני המודלים
-        regular_pred = regular_model.predict(X_noisy)
-        adv_pred = adv_model.predict(X_noisy)
+        # חיזוי עם שני המודלים - עכשיו עם שני קלטים
+        regular_pred = regular_model.predict([X_noisy, mask_test])
+        adv_pred = adv_model.predict([X_noisy, mask_test])
         
         # חישוב מדדים לכל תכונה
         for i, feature in enumerate(features):

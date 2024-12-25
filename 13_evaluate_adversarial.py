@@ -25,12 +25,12 @@ def evaluate_adversarial_model():
     ]
     
     # טעינת המודלים
-    base_model = keras.models.load_model('models/finetuned_model.keras')
+    base_model = keras.models.load_model('models/best_model_run_1.keras')
     adv_model = keras.models.load_model('models/adversarial_model.keras')
     
-    # חיזוי
-    base_predictions = base_model.predict(X_test)
-    adv_predictions = adv_model.predict(X_test)
+    # חיזוי - עכשיו עם שני קלטים
+    base_predictions = base_model.predict([X_test, mask_test])
+    adv_predictions = adv_model.predict([X_test, mask_test])
     
     # ניתוח לפי קטגוריות
     results = []
