@@ -1,3 +1,8 @@
+# 13_evaluate_adversarial.py
+"""
+This script evaluates the adversarial model by comparing it to the base model.
+It also checks the robustness of the model to adversarial perturbations.
+"""
 import numpy as np
 from tensorflow import keras
 import matplotlib.pyplot as plt
@@ -7,44 +12,44 @@ import seaborn as sns
 
 def evaluate_adversarial_model():
     """
-    הערכת המודל האדברסרי:
-    1. השוואה למודל הבסיסי
-    2. בדיקת עמידות להפרעות
-    3. ניתוח לפי קטגוריות
+    Evaluate the adversarial model:
+    1. Compare to the base model
+    2. Check robustness to perturbations
+    3. Analyze by categories
     """
-    # טעינת נתוני הבדיקה
+    # Load test data
     data = np.load('data/training_data.npz')
     X_test = data['X_test']
     y_test = data['y_test']
     mask_test = data['mask_test']
     
-    # הגדרת התכונות
+    # Define features
     features = [
         'MedInc', 'AveRooms', 'AveBedrms', 'Population', 
         'AveOccup', 'Latitude', 'Longitude', 'AgeCategory'
     ]
     
-    # טעינת המודלים
+    # Load models
     base_model = keras.models.load_model('models/best_model_run_1.keras')
     adv_model = keras.models.load_model('models/adversarial_model.keras')
     
-    # חיזוי - עכשיו עם שני קלטים
+    # Prediction - now with two inputs
     base_predictions = base_model.predict([X_test, mask_test])
     adv_predictions = adv_model.predict([X_test, mask_test])
     
-    # ניתוח לפי קטגוריות
+    # Analysis by categories
     results = []
     for i, feature in enumerate(features):
-        # מציאת האינדקסים של הערכים הממוסכים
+        # Find the indices of the masked values
         feature_mask = mask_test[:, i]
         
         if feature_mask.any():
-            # חישוב מדדים למודל הבסיסי
+            # Calculate metrics for the base model
             base_mae = np.mean(np.abs(y_test[feature_mask, i] - base_predictions[feature_mask, i]))
             base_mse = np.mean((y_test[feature_mask, i] - base_predictions[feature_mask, i])**2)
             base_rmse = np.sqrt(base_mse)
             
-            # חישוב מדדים למודל האדברסרי
+            # Calculate metrics for the adversarial model
             adv_mae = np.mean(np.abs(y_test[feature_mask, i] - adv_predictions[feature_mask, i]))
             adv_mse = np.mean((y_test[feature_mask, i] - adv_predictions[feature_mask, i])**2)
             adv_rmse = np.sqrt(adv_mse)
@@ -59,14 +64,14 @@ def evaluate_adversarial_model():
                 'RMSE_Diff': base_rmse - adv_rmse
             })
     
-    # יצירת DataFrame
+    # Create DataFrame
     results_df = pd.DataFrame(results)
     
-    # שמירת התוצאות
+    # Save results
     os.makedirs('results', exist_ok=True)
     results_df.to_csv('results/feature_comparison.csv', index=False)
     
-    # יצירת גרף השוואה
+    # Create comparison plot
     plt.figure(figsize=(12, 6))
     x = range(len(features))
     width = 0.35
@@ -82,7 +87,7 @@ def evaluate_adversarial_model():
     plt.xticks(x, features, rotation=45)
     plt.legend()
     
-    # שמירת הגרף
+    # Save plot
     os.makedirs('plots/adversarial', exist_ok=True)
     plt.savefig('plots/adversarial/feature_comparison.png', bbox_inches='tight')
     plt.close()

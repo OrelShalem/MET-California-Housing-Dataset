@@ -1,4 +1,10 @@
 # 09_finetune_model.py
+"""
+Fine-tuning the trained model:
+1. Loading the trained model
+2. Loading training data
+3. Continuing training with a lower learning rate
+"""
 
 import tensorflow as tf
 from tensorflow import keras
@@ -13,21 +19,21 @@ def reconstruction_loss(y_true, y_pred, mask):
 
 def finetune_model():
     """
-    Fine-tuning של המודל המאומן:
-    1. טעינת המודל המאומן
-    2. טעינת נתוני האימון
-    3. המשך אימון עם learning rate נמוך יותר
+    Fine-tuning the trained model:
+    1. Loading the trained model
+    2. Loading training data
+    3. Continuing training with a lower learning rate
     """
-    # טעינת המודל המאומן
+    # Load the trained model
     model = keras.models.load_model('models/best_model_run_1.keras')
     
-    # טעינת הנתונים
+    # Load training data
     data = np.load('data/training_data.npz')
     X_train = tf.cast(data['X_train'], tf.float32)
     y_train = tf.cast(data['y_train'], tf.float32)
     mask_train = tf.cast(data['mask_train'], tf.float32)
     
-    # הגדרת אופטימייזר חדש עם learning rate נמוך יותר
+    # Set new optimizer with lower learning rate
     optimizer = keras.optimizers.Adam(learning_rate=0.0001)
     
     # Custom training step
@@ -45,16 +51,16 @@ def finetune_model():
     train_loss_metric = tf.keras.metrics.Mean()
     val_loss_metric = tf.keras.metrics.Mean()
     
-    # חלוקה ל-train/validation
+    # Split into train/validation
     val_size = int(len(X_train) * 0.1)
     indices = np.random.permutation(len(X_train))
     train_idx, val_idx = indices[val_size:], indices[:val_size]
     
-    # המרת האינדקסים לטנסורים
+    # Convert indices to tensors
     train_idx = tf.convert_to_tensor(train_idx)
     val_idx = tf.convert_to_tensor(val_idx)
     
-    # חיתוך הנתונים
+    # Split data into train/validation
     X_train_split = tf.gather(X_train, train_idx)
     y_train_split = tf.gather(y_train, train_idx)
     mask_train_split = tf.gather(mask_train, train_idx)
@@ -69,7 +75,7 @@ def finetune_model():
     patience_counter = 0
     
     for epoch in range(10):
-        # איפוס מטריקות
+        # Reset metrics
         train_loss_metric.reset_states()
         val_loss_metric.reset_states()
         
@@ -91,7 +97,7 @@ def finetune_model():
         val_loss = reconstruction_loss(y_val, val_pred, mask_val)
         val_loss_metric.update_state(val_loss)
         
-        # עדכון progress bar
+        # Update progress bar
         values = [
             ('loss', float(train_loss_metric.result())),
             ('val_loss', float(val_loss_metric.result()))

@@ -1,90 +1,86 @@
 # 07_train_model.py
+# This script is designed to train the model.
+
 
 import tensorflow as tf
 from tensorflow import keras
-from keras import layers
 import numpy as np
 import time
 from collections import defaultdict
-
-def create_transformer_block(x, embed_dim, num_heads):
-    """יצירת בלוק טרנספורמר"""
-    # Multi-head attention
-    x_reshaped = layers.Reshape((1, embed_dim))(x)
-    attention_output = layers.MultiHeadAttention(
-        num_heads=num_heads, 
-        key_dim=embed_dim // num_heads
-    )(x_reshaped, x_reshaped)
-    attention_output = layers.Reshape((embed_dim,))(attention_output)
-    
-    # Add & Normalize
-    x1 = layers.Add()([x, attention_output])
-    x1 = layers.LayerNormalization(epsilon=1e-6)(x1)
-    
-    # Feed-forward
-    x2 = layers.Dense(embed_dim * 4, activation='relu')(x1)
-    x2 = layers.Dense(embed_dim)(x2)
-    
-    # Add & Normalize
-    out = layers.Add()([x1, x2])
-    out = layers.LayerNormalization(epsilon=1e-6)(out)
-    
-    return out
+from keras import layers
+from keras.models import load_model
+import json
 
 def reconstruction_loss(y_true, y_pred, mask):
-    """MET's reconstruction loss"""
+    """MET's reconstruction loss
+    Calculates loss only on masked values
+    Uses mean squared error (MSE)
+    Ignores masked values
+    """
     y_true = tf.cast(y_true, tf.float32)
     y_pred = tf.cast(y_pred, tf.float32)
     mask = tf.cast(mask, tf.float32)
     return tf.reduce_mean(mask * tf.square(y_true - y_pred))
 
 def mae_metric(y_true, y_pred, mask):
-    """Mean Absolute Error על ערכים ממוסכים"""
+    """Mean Absolute Error on masked values
+    Calculates mean absolute error
+    Only considers masked values
+    Used for quality assessment
+    """
     y_true = tf.cast(y_true, tf.float32)
     y_pred = tf.cast(y_pred, tf.float32)
     mask = tf.cast(mask, tf.float32)
     return tf.reduce_mean(mask * tf.abs(y_true - y_pred))
 
 def accuracy_metric(y_true, y_pred, mask):
-    """חישוב דיוק (accuracy) על ערכים ממוסכים"""
+    """Calculate accuracy on masked values
+    Calculates accuracy
+    Only considers masked values
+    Used for quality assessment
+    """
     y_true = tf.cast(y_true, tf.float32)
     y_pred = tf.cast(y_pred, tf.float32)
     mask = tf.cast(mask, tf.float32)
     
-    # נחשב את הדיוק רק על הערכים הממוסכים
+    # Calculate accuracy on masked values
     correct_predictions = tf.cast(
-        tf.abs(y_true - y_pred) < 0.5,  # threshold של 0.5
+        tf.abs(y_true - y_pred) < 0.5,  # threshold of 0.5
         tf.float32
     )
     accuracy = tf.reduce_sum(mask * correct_predictions) / tf.reduce_sum(mask)
     return accuracy
 
 def train_model(batch_size=256, epochs=10, validation_split=0.2, num_runs=1):
-    """אימון המודל מספר פעמים ושמירת סטטיסטיקות"""
-    # מילון לשמירת תוצאות מכל הריצות
+    """Train the model multiple times and save statistics"""
+    # Dictionary to store results from all runs
     all_metrics = defaultdict(list)
+    
+    # Load model architecture
+    with open('models/model_architecture.json', 'r') as json_file:
+        model_architecture = json_file.read()  # קורא כמחרוזת במקום להמיר ל-dict
     
     for run in range(num_runs):
         print(f"\nRun {run+1}/{num_runs}")
         
-        # טעינת הנתונים
+        # Load data
         data = np.load('data/training_data.npz')
         X = data['X_train']
         y = data['y_train']
         mask = data['mask_train']
         
-        # חלוקה ל-train/validation
+        # Split into train/validation
         val_size = int(len(X) * validation_split)
         indices = np.random.permutation(len(X))
         
         train_idx, val_idx = indices[val_size:], indices[:val_size]
         
-        # חלוקת הנתונים (כ-numpy arrays)
+        # Split data into train/validation
         X_train, X_val = X[train_idx], X[val_idx]
         y_train, y_val = y[train_idx], y[val_idx]
         mask_train, mask_val = mask[train_idx], mask[val_idx]
         
-        # המרה ל-tensorflow
+        # Convert to tensorflow
         X_train = tf.convert_to_tensor(X_train, dtype=tf.float32)
         X_val = tf.convert_to_tensor(X_val, dtype=tf.float32)
         y_train = tf.convert_to_tensor(y_train, dtype=tf.float32)
@@ -92,30 +88,12 @@ def train_model(batch_size=256, epochs=10, validation_split=0.2, num_runs=1):
         mask_train = tf.convert_to_tensor(mask_train, dtype=tf.float32)
         mask_val = tf.convert_to_tensor(mask_val, dtype=tf.float32)
         
-        # הגדרת פרמטרים
-        input_dim = X_train.shape[1]
-        embed_dim = 64
-        num_heads = 2
-        num_transformer_blocks = 3
+        # Create model from saved architecture
+        model = tf.keras.models.model_from_json(model_architecture)
         
-        # בניית המודל
-        inputs = layers.Input(shape=(input_dim,))
-        mask_input = layers.Input(shape=(input_dim,))
-        
-        x = layers.Dense(embed_dim)(inputs)
-        
-        # Transformer blocks
-        for _ in range(num_transformer_blocks):
-            x = create_transformer_block(x, embed_dim, num_heads)
-        
-        # Output layer
-        outputs = layers.Dense(input_dim)(x)
-        
-        # יצירת המודל
-        model = keras.Model(inputs=[inputs, mask_input], outputs=outputs)
-        
-        # הגדרת האופטימייזר
+        # Set optimizer and compile model
         optimizer = keras.optimizers.Adam(learning_rate=0.001)
+        model.compile(optimizer=optimizer)
         
         # Training metrics
         train_loss_metric = tf.keras.metrics.Mean(name='train_loss')
@@ -127,6 +105,11 @@ def train_model(batch_size=256, epochs=10, validation_split=0.2, num_runs=1):
         
         @tf.function
         def train_step(x, y, mask):
+            """Train step function
+            Performs one training step
+            Calculates gradients and updates weights
+            Updates performance metrics
+            """
             with tf.GradientTape() as tape:
                 y_pred = model([x, mask], training=True)
                 loss = reconstruction_loss(y, y_pred, mask)
@@ -134,7 +117,7 @@ def train_model(batch_size=256, epochs=10, validation_split=0.2, num_runs=1):
             gradients = tape.gradient(loss, model.trainable_variables)
             optimizer.apply_gradients(zip(gradients, model.trainable_variables))
             
-            # עדכון מטריקות
+            # Update metrics
             train_loss_metric.update_state(loss)
             train_mae_metric.update_state(mae_metric(y, y_pred, mask))
             train_acc_metric.update_state(accuracy_metric(y, y_pred, mask))
@@ -142,6 +125,10 @@ def train_model(batch_size=256, epochs=10, validation_split=0.2, num_runs=1):
         
         @tf.function
         def val_step(x, y, mask):
+            """Validation step function
+            Performs validation step
+            Calculates performance metrics on validation set
+            """
             y_pred = model([x, mask], training=False)
             val_loss = reconstruction_loss(y, y_pred, mask)
             val_loss_metric.update_state(val_loss)
@@ -151,7 +138,7 @@ def train_model(batch_size=256, epochs=10, validation_split=0.2, num_runs=1):
         # Training loop
         best_val_loss = float('inf')
         for epoch in range(epochs):
-            # איפוס מטריקות
+            # Reset metrics
             train_loss_metric.reset_states()
             train_mae_metric.reset_states()
             train_acc_metric.reset_states()
@@ -172,12 +159,12 @@ def train_model(batch_size=256, epochs=10, validation_split=0.2, num_runs=1):
             # Training & Validation
             current_loss = train_step(X_train, y_train, mask_train)
             val_step(X_val, y_val, mask_val)
-            
-            # חישוב זמנים
+
+            # Calculate time per epoch
             time_per_epoch = time.time() - start_time
             time_remaining = time_per_epoch * (epochs - epoch - 1)
             
-            # עדכון progress bar
+            # Update progress bar
             values = [
                 ('loss', float(train_loss_metric.result())),
                 ('mae', float(train_mae_metric.result())),
@@ -191,13 +178,13 @@ def train_model(batch_size=256, epochs=10, validation_split=0.2, num_runs=1):
             print(f"\nTime per epoch: {time_per_epoch:.1f}s")
             print(f"Time remaining: {time_remaining:.1f}s")
             
-            # שמירת המודל הטוב ביותר
+            # Save the best model
             if val_loss_metric.result() < best_val_loss:
                 best_val_loss = val_loss_metric.result()
                 model.save(f'models/best_model_run_{run+1}.keras', save_format='tf')
                 print("\nSaved new best model!")
         
-        # שמירת המטריקות מהריצה הנוכחית
+        # Save metrics from current run
         all_metrics['train_loss'].append(float(train_loss_metric.result()))
         all_metrics['train_mae'].append(float(train_mae_metric.result()))
         all_metrics['train_acc'].append(float(train_acc_metric.result()))
@@ -205,7 +192,7 @@ def train_model(batch_size=256, epochs=10, validation_split=0.2, num_runs=1):
         all_metrics['val_mae'].append(float(val_mae_metric.result()))
         all_metrics['val_acc'].append(float(val_acc_metric.result()))
     
-    # הדפסת סטטיסטיקות מסכמות
+    # Print summary statistics
     print("\nFinal Statistics over", num_runs, "runs:")
     for metric_name, values in all_metrics.items():
         mean = np.mean(values)

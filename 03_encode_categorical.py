@@ -1,4 +1,8 @@
 # 03_encode_categorical.py
+# This script encodes the categorical features
+# It creates a new column 'AgeCategory' based on the 'HouseAge' column
+# The purpose of this script is to convert categorical features to numerical features.
+# This is a necessary step in the data preparation process for machine learning models, as most models can only work with numerical data.
 
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder

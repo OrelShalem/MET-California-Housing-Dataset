@@ -11,7 +11,6 @@ california = fetch_california_housing()
 # explain: california.data is the data, california.feature_names is the feature names
 data = pd.DataFrame(california.data, columns=california.feature_names)
 
-# explain: california.target is the target variable
 # target variable will be used to predict the median house value
 data['MedHouseVal'] = california.target
 

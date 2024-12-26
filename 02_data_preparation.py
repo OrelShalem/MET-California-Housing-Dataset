@@ -1,8 +1,13 @@
 # 02_data_preparation.py
+# This script prepares the data for the model
+# It creates a new column 'AgeCategory' based on the 'HouseAge' column
+# It then drops the original 'HouseAge' column
+# It then normalizes the numerical features and the target variable
+# It then saves the normalized data and the scalers to files
 
-import pandas as pd
-from sklearn.preprocessing import StandardScaler
-import joblib
+import pandas as pd # for data manipulation and analysis
+from sklearn.preprocessing import StandardScaler # for feature scaling
+import joblib # for saving and loading the scalers
 
 # Load the data
 data = pd.read_csv('data/raw_data.csv')
@@ -19,6 +24,7 @@ df['AgeCategory'] = pd.cut(
 df = df.drop(columns=['HouseAge'])
 
 # Define the numerical features
+# the numerical features are: median income, average rooms, average bedrooms, population, average occupancy, latitude, longitude
 numerical_features = [
     'MedInc', 'AveRooms', 'AveBedrms', 'Population', 
     'AveOccup', 'Latitude', 'Longitude'

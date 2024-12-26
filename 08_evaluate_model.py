@@ -12,24 +12,24 @@ import os
 
 def evaluate_model():
     """
-    הערכת המודל לפי גישת MET:
-    1. בדיקת ביצועים על סט הבדיקה
-    2. חישוב מדדים שונים
-    3. ויזואליזציה של התוצאות
+    Model evaluation using MET:
+    1. Testing performance on test set
+    2. Calculation of different metrics
+    3. Visualization of results
     """
-    # טעינת הנתונים
+    # Load data
     data = np.load('data/training_data.npz')
     X_test = data['X_test']
     y_test = data['y_test']
     mask_test = data['mask_test']
     
-    # טעינת המודל
+    # Load model
     model = keras.models.load_model('models/best_model_run_1.keras')
     
-    # חיזוי - עכשיו עם שני קלטים
+    # Prediction - now with two inputs
     y_pred = model.predict([X_test, mask_test])
-    
-    # חישוב מדדים רק על הערכים הממוסכים
+
+    # Calculate metrics only on masked values
     mse_per_feature = []
     mae_per_feature = []
     acc_per_feature = []
@@ -39,7 +39,7 @@ def evaluate_model():
         mse = mean_squared_error(y_test[feature_mask, i], y_pred[feature_mask, i])
         mae = mean_absolute_error(y_test[feature_mask, i], y_pred[feature_mask, i])
         
-        # חישוב accuracy לכל תכונה
+        # Calculate accuracy for each feature
         correct = np.abs(y_test[feature_mask, i] - y_pred[feature_mask, i]) < 0.5
         acc = np.mean(correct)
         
@@ -47,7 +47,7 @@ def evaluate_model():
         mae_per_feature.append(mae)
         acc_per_feature.append(acc)
     
-    # יצירת DataFrame עם התוצאות
+    # Create DataFrame with results
     features = ['MedInc', 'AveRooms', 'AveBedrms', 'Population', 
                'AveOccup', 'Latitude', 'Longitude', 'AgeCategory']
     
@@ -59,7 +59,7 @@ def evaluate_model():
         'Accuracy': acc_per_feature
     })
     
-    # הדפסת התוצאות
+    # Print results
     print("\nModel Evaluation Results:")
     print(results_df.to_string(index=False))
     print(f"\nOverall MSE: {np.mean(mse_per_feature):.4f}")
@@ -67,11 +67,11 @@ def evaluate_model():
     print(f"Overall RMSE: {np.sqrt(np.mean(mse_per_feature)):.4f}")
     print(f"Overall Accuracy: {np.mean(acc_per_feature):.4f}")
     
-    # יצירת תיקיות אם לא קיימות
+    # Create directories if they don't exist
     os.makedirs('plots', exist_ok=True)
     os.makedirs('results', exist_ok=True)
     
-    # ויזואליזציה של התוצאות
+    # Visualization of results
     plt.figure(figsize=(15, 5))
     
     # Plot MSE per feature
@@ -96,7 +96,7 @@ def evaluate_model():
     plt.savefig('plots/evaluation_results.png')
     plt.close()
     
-    # שמירת התוצאות לקובץ
+    # Save results to file
     results_df.to_csv('results/evaluation_metrics.csv', index=False)
     
     return results_df

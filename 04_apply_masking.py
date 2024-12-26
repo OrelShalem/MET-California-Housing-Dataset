@@ -1,4 +1,7 @@
 # 04_apply_masking.py
+# This script applies masking to the data
+# It masks 15% of the data 
+
 
 # pandas is used to load the data
 # numpy is used to mask the data
@@ -11,35 +14,35 @@ df = pd.read_csv('data/encoded_data.csv')
 # Define the masking function
 def mask_data(df, mask_fraction=0.15):
     """
-    מיסוך נתונים בגישת MET:
-    1. מיסוך אחיד לכל התכונות
-    2. אחוז מיסוך נמוך יותר
-    3. שימוש בערך מיסוך אחיד (-1)
+    Masking data using the MET approach:
+    1. Uniform masking for all features
+    2. Lower masking percentage
+    3. Using a uniform masking value (-1)
     """
     df_masked = df.copy()
     
-    # הגדרת כל התכונות ביחד
+    # Define all features
     features = [
         'MedInc', 'AveRooms', 'AveBedrms', 'Population', 
         'AveOccup', 'Latitude', 'Longitude', 'AgeCategory'
     ]
     
-    # יצירת מסיכה אקראית לכל התכונות
+    # Create random masking for all features
     total_cells = len(df) * len(features)
     num_masks = int(total_cells * mask_fraction)
     
-    # בחירת תאים אקראיים למיסוך
+    # Choose random cells for masking
     mask_indices = []
     for _ in range(num_masks):
         row = np.random.randint(0, len(df))
         col = np.random.choice(features)
         mask_indices.append((row, col))
     
-    # החלת המיסוך
+    # Apply the masking
     for row, col in mask_indices:
-        df_masked.loc[row, col] = -1  # ערך מיסוך אחיד
+        df_masked.loc[row, col] = -1  # Uniform masking value
     
-    # שמירת אינדקסים של התאים הממוסכים
+    # Save the masking indices
     mask_info = pd.DataFrame(mask_indices, columns=['row', 'column'])
     
     return df_masked, mask_info

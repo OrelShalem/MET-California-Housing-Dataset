@@ -1,11 +1,17 @@
 # 05_build_model.py
+# This script is designed to build the model architecture.
 
-# explain: tensorflow is used to build the model and keras is used to build the layers
 import tensorflow as tf
 from keras import layers, models
 
 def create_transformer_block(x, embed_dim, ff_dim, num_heads):
-    """יצירת בלוק טרנספורמר"""
+    """
+    Create a transformer block:
+    Convert input to 3D tensor
+    Multi-Head Attention layer
+    Feed-Forward network
+    Residual Connections and Normalization
+    """
     # Reshape the input to 3D tensor for attention
     x_reshaped = layers.Reshape((1, embed_dim))(x)
     
@@ -29,16 +35,31 @@ def create_transformer_block(x, embed_dim, ff_dim, num_heads):
     x = layers.LayerNormalization(epsilon=1e-6)(x)
     
     return x
+"""
+Parameters:
+input_dim: Input dimension
+embed_dim: Embedding dimension
+ff_dim: Feed-Forward network dimension
+num_heads: Number of attention heads
+model_depth_enc: Number of encoder layers
+model_depth_dec: Number of decoder layers
+"""
 
 def create_model(input_dim, embed_dim=64, ff_dim=64, num_heads=2, 
                 model_depth_enc=6, model_depth_dec=1):
     """
     MET model architecture:
-    1. Encoder-Decoder טרנספורמר בסגנון
-    2. משתמש במספר שכבות טרנספורמר מתכוונן
+    1. Encoder-Decoder transformer
+    2. Uses multiple transformer layers
+    3. Input layer
+    4. Initial embedding layer
+    5. Encoder blocks
+    6. Decoder blocks
+    7. Output layer
     """
-    # Input layer
+    # Input layers
     inputs = layers.Input(shape=(input_dim,))
+    mask_input = layers.Input(shape=(input_dim,))
     
     # Initial embedding
     x = layers.Dense(embed_dim)(inputs)
@@ -55,18 +76,12 @@ def create_model(input_dim, embed_dim=64, ff_dim=64, num_heads=2,
     outputs = layers.Dense(input_dim)(x)
     
     # Build model
-    model = models.Model(inputs=inputs, outputs=outputs)
-    
-    # Compile
-    model.compile(
-        optimizer='adam',
-        loss='mse'
-    )
+    model = models.Model(inputs=[inputs, mask_input], outputs=outputs)
     
     return model
 
 if __name__ == "__main__":
-    # יצירת המודל עם הפרמטרים המומלצים מה-paper
+    # Create the model with the recommended parameters
     model = create_model(
         input_dim=8,
         embed_dim=64,
@@ -75,9 +90,11 @@ if __name__ == "__main__":
         model_depth_enc=6,
         model_depth_dec=1
     )
+    
+    # Display the model summary
     model.summary()
     
-    # שמירת ארכיטקטורת המודל
+    # Save the model architecture
     model_json = model.to_json()
     with open('models/model_architecture.json', 'w') as json_file:
         json_file.write(model_json)
