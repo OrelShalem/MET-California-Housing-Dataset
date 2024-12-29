@@ -38,8 +38,8 @@ def prepare_adversarial_data():
     # Save prepared data
     np.savez('data/adversarial_data.npz',
              X_train=X_train,                    # Original training samples
-             X_train_noisy_sets=X_train_sets,    # סטים של נתונים מופרעים
-             noise_levels=noise_levels,          # רמות הרעש ששימשו
+             X_train_noisy_sets=X_train_sets,    # Sets of perturbed data
+             noise_levels=noise_levels,          # Noise levels used
              y_train=y_train,
              mask_train=mask_train)
     

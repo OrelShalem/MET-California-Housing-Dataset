@@ -50,6 +50,13 @@ def accuracy_metric(y_true, y_pred, mask):
     )
     accuracy = tf.reduce_sum(mask * correct_predictions) / tf.reduce_sum(mask)
     return accuracy
+"""
+parameters:
+batch_size: number of samples per batch
+epochs: number of epochs to train the model
+validation_split: fraction of data to use for validation
+num_runs: number of times to run the training process
+"""
 
 def train_model(batch_size=256, epochs=10, validation_split=0.2, num_runs=1):
     """Train the model multiple times and save statistics"""
@@ -58,7 +65,7 @@ def train_model(batch_size=256, epochs=10, validation_split=0.2, num_runs=1):
     
     # Load model architecture
     with open('models/model_architecture.json', 'r') as json_file:
-        model_architecture = json_file.read()  # קורא כמחרוזת במקום להמיר ל-dict
+        model_architecture = json_file.read()  # reads as string instead of converting to dict
     
     for run in range(num_runs):
         print(f"\nRun {run+1}/{num_runs}")
@@ -199,6 +206,27 @@ def train_model(batch_size=256, epochs=10, validation_split=0.2, num_runs=1):
         std = np.std(values)
         print(f"{metric_name:10s}: {mean:.4f} ± {std:.4f}")
     
+    # Add success rate summary
+    print("\nSuccess Rates:")
+    print(f"Training Success Rate: {float(train_acc_metric.result())*100:.2f}%")
+    print(f"Validation Success Rate: {float(val_acc_metric.result())*100:.2f}%")
+    
+    # Add detailed performance
+    print("\nDetailed Performance:")
+    print(f"Training MAE: {float(train_mae_metric.result()):.4f}")
+    print(f"Validation MAE: {float(val_mae_metric.result()):.4f}")
+    print(f"Average prediction error: ±{float(val_mae_metric.result()):.4f} units")
+    
+    # Add comparison between training and validation
+    train_acc = float(train_acc_metric.result())*100
+    val_acc = float(val_acc_metric.result())*100
+    diff = abs(train_acc - val_acc)
+    print(f"\nDifference between training and validation accuracy: {diff:.2f}%")
+    if diff < 5:
+        print("✅ Model shows good generalization (difference < 5%)")
+    else:
+        print("⚠️ Model might be overfitting (difference > 5%)")
+
     return model, all_metrics
 
 if __name__ == "__main__":

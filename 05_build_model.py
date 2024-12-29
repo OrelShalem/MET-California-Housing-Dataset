@@ -16,9 +16,10 @@ def create_transformer_block(x, embed_dim, ff_dim, num_heads):
     x_reshaped = layers.Reshape((1, embed_dim))(x)
     
     # Multi-head attention
+    # every head will attend to a different part of the input
     attention_output = layers.MultiHeadAttention(
         num_heads=num_heads, 
-        key_dim=embed_dim // num_heads  # חלוקה במספר הראשים
+        key_dim=embed_dim // num_heads  # divide by number of heads
     )(x_reshaped, x_reshaped)
     
     # Reshape back to 2D
@@ -38,7 +39,7 @@ def create_transformer_block(x, embed_dim, ff_dim, num_heads):
 """
 Parameters:
 input_dim: Input dimension
-embed_dim: Embedding dimension
+embed_dim: Embedding dimension is the dimension of the input vector
 ff_dim: Feed-Forward network dimension
 num_heads: Number of attention heads
 model_depth_enc: Number of encoder layers
@@ -51,11 +52,12 @@ def create_model(input_dim, embed_dim=64, ff_dim=64, num_heads=2,
     MET model architecture:
     1. Encoder-Decoder transformer
     2. Uses multiple transformer layers
-    3. Input layer
-    4. Initial embedding layer
-    5. Encoder blocks
-    6. Decoder blocks
-    7. Output layer
+
+    1. Input layer
+    2. Initial embedding layer
+    3. Encoder blocks
+    4. Decoder blocks
+    5. Output layer
     """
     # Input layers
     inputs = layers.Input(shape=(input_dim,))

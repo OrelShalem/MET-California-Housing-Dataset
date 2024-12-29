@@ -47,8 +47,7 @@ def adversarial_loss(model, x, y, mask, epsilon=0.1):
     The process is:
     - Gradient (grad) shows the direction to change the input to increase the loss
     - tf.sign(grad) gives +1 or -1 depending on the gradient direction
-    - epsilon (0.1) determines how large the perturbation will be
-    - delta is the perturbation itself
+    - epsilon (0.1) determines how large the perturbation will be delta is the perturbation itself
     - x_adv are the adversarial samples
     """
     x = tf.cast(x, tf.float32)
